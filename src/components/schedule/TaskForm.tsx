@@ -61,6 +61,23 @@ const DEFAULT_FORM = (cat: TaskCategory): FormState => ({
           : { type: "fixed_times", times: ["13:00", "17:00", "21:00", "01:00"] },
 });
 
+/**
+ * `crypto.randomUUID()` requires a secure context. In Tauri 2 production on
+ * Windows the webview origin is `http://tauri.localhost` which WebView2 does
+ * NOT treat as secure — calling randomUUID throws TypeError. Fall back to a
+ * timestamp+random id when needed.
+ */
+function generateTaskId(): string {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+  } catch {
+    /* fall through */
+  }
+  return `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function formFromTask(task: RecurringTask): FormState {
   return {
     title: task.title,
@@ -135,10 +152,7 @@ export function TaskForm({
       const next = computeNextFire(form.schedule);
       if (isNew) {
         await insertTask({
-          id:
-            typeof crypto !== "undefined" && "randomUUID" in crypto
-              ? crypto.randomUUID()
-              : `t-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          id: generateTaskId(),
           category: form.category,
           title: trimmedTitle,
           schedule: form.schedule,
@@ -160,7 +174,8 @@ export function TaskForm({
       navigate(backTo);
     } catch (err) {
       console.error(err);
-      setError("не удалось сохранить.");
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(`не удалось сохранить · ${msg}`);
       setBusy(false);
     }
   }
@@ -171,8 +186,9 @@ export function TaskForm({
     try {
       await dbDeleteTask(taskId!);
       navigate(backTo);
-    } catch {
-      setError("не удалось удалить.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(`не удалось удалить · ${msg}`);
       setBusy(false);
     }
   }
@@ -300,7 +316,7 @@ export function TaskForm({
         </div>
 
         {error && (
-          <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-destructive">
+          <p className="max-w-[480px] break-words font-mono text-[11px] uppercase tracking-[0.12em] text-destructive">
             {error}
           </p>
         )}
