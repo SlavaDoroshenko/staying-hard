@@ -1,0 +1,184 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Tokens ─────────────────────────────────────────────────────────────── */
+@layer base {
+  :root,
+  .dark,
+  html {
+    /* Warm-ink dark palette. No blue. Reads well past midnight. */
+    --background: 25 10% 6%;          /* #110F0E */
+    --surface: 30 9% 9%;              /* #181613 */
+    --surface-2: 28 8% 12%;           /* #211E1A */
+
+    --foreground: 38 36% 92%;         /* #F3EDE1 — warm cream */
+    --muted-foreground: 35 8% 56%;    /* #948B7E */
+    --faint-foreground: 30 6% 35%;    /* #5C554C */
+
+    --border: 32 12% 14%;             /* hairline warm */
+    --border-strong: 32 10% 22%;
+    --input: 32 12% 14%;
+    --ring: 38 40% 70%;
+
+    --primary: 38 36% 92%;
+    --primary-foreground: 25 10% 6%;
+
+    --secondary: 30 9% 12%;
+    --secondary-foreground: 38 36% 92%;
+
+    --accent: 35 50% 60%;             /* clay-amber, used sparingly */
+    --accent-foreground: 25 10% 6%;
+
+    --destructive: 14 60% 54%;        /* warm coral, emergency mode only */
+    --destructive-foreground: 38 36% 96%;
+
+    --popover: 28 8% 10%;
+    --popover-foreground: 38 36% 92%;
+
+    --card: 28 8% 9%;
+    --card-foreground: 38 36% 92%;
+
+    --muted: 30 9% 12%;
+
+    --radius: 0.625rem;
+
+    /* Easings — stronger than CSS defaults; see emil-design-eng. */
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+    /* Type. */
+    --font-display: "Fraunces", "Iowan Old Style", "Apple Garamond", serif;
+    --font-body: "Onest", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+  }
+
+  /* Force the warm-dark scheme. Spec is RU and late-night; no light theme yet. */
+  html {
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+  body {
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-body);
+    font-feature-settings: "ss01", "cv11", "calt";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Subtle film-grain so the warm-dark surface doesn't read as flat black. */
+    background-image: radial-gradient(
+      circle at 30% 20%,
+      hsl(35 30% 12% / 0.6) 0%,
+      transparent 60%
+    );
+    background-attachment: fixed;
+  }
+
+  /* Keyboard-initiated actions get no animation; pointer presses do. */
+  button,
+  [role="button"] {
+    transition:
+      transform 160ms var(--ease-out),
+      background-color 120ms var(--ease-out),
+      color 120ms var(--ease-out),
+      border-color 120ms var(--ease-out);
+  }
+  button:active:not(:disabled),
+  [role="button"]:active {
+    transform: scale(0.97);
+  }
+
+  ::selection {
+    background: hsl(35 50% 60% / 0.3);
+    color: hsl(var(--foreground));
+  }
+}
+
+/* ─── Display utilities ─────────────────────────────────────────────────── */
+@layer components {
+  .font-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-feature-settings: "ss01";
+  }
+  .font-body {
+    font-family: var(--font-body);
+  }
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+
+  /* Subtle warm divider. */
+  .hairline {
+    border-color: hsl(var(--border));
+  }
+
+  /* Used on tag-like mono captions: "ЕДА · 13:00". */
+  .caption {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* The single accent dot, used for "due now" / active. */
+  .dot-accent {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: hsl(var(--accent));
+    box-shadow: 0 0 12px hsl(var(--accent) / 0.45);
+  }
+
+  .blur-swap {
+    transition:
+      filter 220ms var(--ease-out),
+      opacity 220ms var(--ease-out);
+  }
+  .blur-swap[data-busy="true"] {
+    filter: blur(4px);
+    opacity: 0.55;
+  }
+
+  /* Cross-fades a "X completed" indicator into a row without disturbing layout. */
+  .strikethrough-anim {
+    position: relative;
+  }
+  .strikethrough-anim::after {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0;
+    inset-inline-end: 100%;
+    top: 50%;
+    height: 1px;
+    background: currentColor;
+    transition: inset-inline-end 250ms var(--ease-out);
+    pointer-events: none;
+  }
+  .strikethrough-anim[data-done="true"]::after {
+    inset-inline-end: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
