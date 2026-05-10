@@ -40,6 +40,52 @@ export async function getWeekSummary(today: Date = new Date()): Promise<DaySumma
   return out;
 }
 
+/**
+ * 5-week calendar grid (35 days) aligned Monday-Sunday. Last cell = today.
+ * Future days inside the current week return zeroed summaries — render as
+ * empty cells in the heatmap.
+ */
+export async function getMonthSummary(today: Date = new Date()): Promise<DaySummary[]> {
+  const out: DaySummary[] = [];
+  const dow = today.getDay(); // 0=Sun
+  const mondayOffset = dow === 0 ? 6 : dow - 1;
+  const start = new Date(today);
+  start.setDate(start.getDate() - mondayOffset - 28);
+  for (let i = 0; i < 35; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    out.push(await getDaySummary(d));
+  }
+  return out;
+}
+
+/**
+ * Walk back from today while at least one task was completed each day.
+ * Returns the streak length and the date it started.
+ */
+export async function getStreakWithStart(
+  today: Date = new Date(),
+): Promise<{ days: number; since: Date | null }> {
+  let streak = 0;
+  let since: Date | null = null;
+  for (let i = 0; i < 60; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const summary = await getDaySummary(d);
+    if (summary.total === 0) {
+      if (i === 0) return { days: 0, since: null };
+      continue;
+    }
+    if (summary.completed > 0) {
+      streak++;
+      since = d;
+    } else {
+      break;
+    }
+  }
+  return { days: streak, since };
+}
+
 export interface TopMissed {
   taskId: string;
   title: string;
