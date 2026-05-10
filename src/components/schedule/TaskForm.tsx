@@ -17,8 +17,42 @@ import {
   updateTask as dbUpdateTask,
 } from "@/lib/db/tasks";
 import { computeNextFire } from "@/lib/schedule/next-fire";
+import { formatSchedule } from "@/lib/schedule/format";
 import { cn } from "@/lib/cn";
 import { ScheduleFields } from "./ScheduleFields";
+
+const RU_MONTH_GENITIVE = [
+  "января",
+  "февраля",
+  "марта",
+  "апреля",
+  "мая",
+  "июня",
+  "июля",
+  "августа",
+  "сентября",
+  "октября",
+  "ноября",
+  "декабря",
+];
+
+function pad(n: number): string {
+  return n.toString().padStart(2, "0");
+}
+
+function formatNextFire(ms: number, now: Date): string {
+  const next = new Date(ms);
+  const today = now.toDateString();
+  const tmrw = new Date(now);
+  tmrw.setDate(tmrw.getDate() + 1);
+  const dayLabel =
+    next.toDateString() === today
+      ? "сегодня"
+      : next.toDateString() === tmrw.toDateString()
+        ? "завтра"
+        : `${next.getDate()} ${RU_MONTH_GENITIVE[next.getMonth()]}`;
+  return `${dayLabel} в ${pad(next.getHours())}:${pad(next.getMinutes())}`;
+}
 
 interface Props {
   taskId: string | null;
@@ -137,6 +171,16 @@ export function TaskForm({
     return ScheduleSchema.safeParse(form.schedule).success;
   }, [form.schedule]);
 
+  const preview = useMemo(() => {
+    if (!scheduleValid) return null;
+    try {
+      const ms = computeNextFire(form.schedule, new Date(), null);
+      return formatNextFire(ms, new Date());
+    } catch {
+      return null;
+    }
+  }, [form.schedule, scheduleValid]);
+
   const canSubmit = form.title.trim().length > 0 && scheduleValid && loaded && !busy;
 
   async function save() {
@@ -252,6 +296,20 @@ export function TaskForm({
           allowedTypes={allowedScheduleTypes}
         />
 
+        {preview && (
+          <div className="border-l border-accent/60 pl-4">
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-faint-foreground">
+              будет срабатывать
+            </p>
+            <p className="mt-1 font-display text-[16px] italic text-foreground">
+              {formatSchedule(form.schedule)}.
+            </p>
+            <p className="mt-1 font-mono text-[12px] tabular-nums text-muted-foreground">
+              следующее → {preview}
+            </p>
+          </div>
+        )}
+
         <Field caption="уровень уведомления">
           <LevelRow
             value={form.notificationLevel}
@@ -263,17 +321,22 @@ export function TaskForm({
 
         {form.category === "cleaning" && (
           <Field caption="оценка времени, мин">
-            <input
-              type="number"
-              min={1}
-              inputMode="numeric"
-              value={form.estimateMinutes}
-              onChange={(e) =>
-                setForm({ ...form, estimateMinutes: e.target.value })
-              }
-              placeholder="10"
-              className="w-24 bg-transparent border-b border-border/60 pb-2 font-mono text-[15px] tabular-nums text-foreground outline-none focus:border-accent"
-            />
+            <div className="flex items-baseline gap-3">
+              <input
+                type="number"
+                min={1}
+                inputMode="numeric"
+                value={form.estimateMinutes}
+                onChange={(e) =>
+                  setForm({ ...form, estimateMinutes: e.target.value })
+                }
+                placeholder="10"
+                className="w-24 bg-transparent border-b border-border/60 pb-2 font-mono text-[15px] tabular-nums text-foreground outline-none focus:border-accent"
+              />
+              <span className="font-display text-[13px] italic text-faint-foreground">
+                для статистики и подсказок в today.
+              </span>
+            </div>
           </Field>
         )}
 
