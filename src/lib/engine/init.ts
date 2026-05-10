@@ -1,6 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { seedDefaultsIfEmpty } from "@/lib/db/seed";
 import { recomputeAllNextFire, startEngine } from "./engine";
+import { startUpdater } from "./updater";
 
 let initStarted = false;
 
@@ -18,4 +19,7 @@ export async function bootApp(): Promise<void> {
   await seedDefaultsIfEmpty();
   await recomputeAllNextFire();
   await startEngine();
+
+  // Update poller — independent of engine state, fire-and-forget.
+  startUpdater();
 }

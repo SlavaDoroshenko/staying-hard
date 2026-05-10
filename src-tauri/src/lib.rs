@@ -50,6 +50,7 @@ pub fn run() {
             notification_window::mark_notification_resolved,
             scheduler::trigger_recompute,
             db::reset_database,
+            db::restart_app,
         ])
         .setup(|app| {
             // Snapshot data.db BEFORE the SQL plugin gets a chance to apply

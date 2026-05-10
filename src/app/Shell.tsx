@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { UpdateBanner } from "@/components/UpdateBanner";
 import { cn } from "@/lib/cn";
 
 const NAV = [
@@ -72,8 +73,11 @@ export function Shell() {
         </div>
       </aside>
 
-      <main className="relative flex-1 overflow-y-auto">
-        <Outlet />
+      <main className="relative flex flex-1 flex-col overflow-hidden">
+        <UpdateBanner />
+        <div className="flex-1 overflow-y-auto">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

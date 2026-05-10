@@ -88,3 +88,9 @@ pub async fn reset_database(app: AppHandle) -> Result<(), String> {
     log::info!("[db] reset complete — restarting");
     app.restart();
 }
+
+/// Generic restart used after `update.downloadAndInstall()` finishes.
+#[tauri::command]
+pub async fn restart_app(app: AppHandle) {
+    app.restart();
+}
