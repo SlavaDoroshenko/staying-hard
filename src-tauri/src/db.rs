@@ -13,6 +13,7 @@ use tauri::{AppHandle, Manager};
 
 const DB_FILE: &str = "data.db";
 const BACKUP_PREFIX: &str = "data.db.backup-";
+const RESET_MARKER: &str = "data.db.reset-pending";
 const KEEP_BACKUPS: usize = 3;
 
 pub fn data_dir(app: &AppHandle) -> tauri::Result<PathBuf> {
@@ -21,6 +22,31 @@ pub fn data_dir(app: &AppHandle) -> tauri::Result<PathBuf> {
         std::fs::create_dir_all(&dir).ok();
     }
     Ok(dir)
+}
+
+/// If a reset was requested before the previous shutdown, do the actual file
+/// removal here — the SQL plugin doesn't have a connection open yet, so the
+/// file isn't locked. Must run before `backup_db_before_migration` and before
+/// `tauri-plugin-sql` connects.
+pub fn process_reset_marker(app: &AppHandle) -> tauri::Result<()> {
+    let dir = data_dir(app)?;
+    let marker = dir.join(RESET_MARKER);
+    if !marker.exists() {
+        return Ok(());
+    }
+    log::info!("[db] reset marker found — clearing local DB");
+    for name in [DB_FILE, "data.db-shm", "data.db-wal"] {
+        let p = dir.join(name);
+        if p.exists() {
+            if let Err(e) = std::fs::remove_file(&p) {
+                log::warn!("[db] reset cleanup: couldn't remove {}: {}", p.display(), e);
+            }
+        }
+    }
+    if let Err(e) = std::fs::remove_file(&marker) {
+        log::warn!("[db] reset cleanup: couldn't remove marker: {e}");
+    }
+    Ok(())
 }
 
 /// Copy `data.db` to `data.db.backup-{YYYYMMDD-HHMMSS}` if it exists.
@@ -70,22 +96,18 @@ fn prune_old_backups(dir: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Delete the local database files and restart the app. Recovery exit when
-/// sqlx checksum-mismatch (or any other DB corruption) makes normal SQL
-/// operations impossible. Operates on file system directly so it doesn't need
-/// a working `Database` connection.
+/// Schedule a database reset on next launch. We don't delete the file here
+/// because the SQL plugin holds a lock (especially on Windows) — instead we
+/// drop a marker file and restart. The setup hook on the next boot picks up
+/// the marker, deletes the DB before the SQL plugin reconnects.
 #[tauri::command]
 pub async fn reset_database(app: AppHandle) -> Result<(), String> {
     let dir = data_dir(&app).map_err(|e| e.to_string())?;
-    for name in [DB_FILE, "data.db-shm", "data.db-wal"] {
-        let p = dir.join(name);
-        if p.exists() {
-            if let Err(e) = std::fs::remove_file(&p) {
-                log::warn!("[db] reset: couldn't remove {}: {}", p.display(), e);
-            }
-        }
+    let marker = dir.join(RESET_MARKER);
+    if let Err(e) = std::fs::write(&marker, b"reset") {
+        return Err(format!("couldn't write reset marker: {e}"));
     }
-    log::info!("[db] reset complete — restarting");
+    log::info!("[db] reset marker written — restarting");
     app.restart();
 }
 

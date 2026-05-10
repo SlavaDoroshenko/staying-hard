@@ -138,7 +138,14 @@ async function checkEmergencies(nowMs: number): Promise<void> {
 export async function recomputeAllNextFire(now: Date = new Date()): Promise<void> {
   const tasks = await listActiveTasks();
   for (const task of tasks) {
-    const next = computeNextFire(task.schedule, now, task.nextFireAt ?? null);
+    // Critical: pass the task's *last actual fire*, not its planned next fire.
+    // For every_n_days the math is `lastFireAt + N`, so feeding nextFireAt
+    // shifts the schedule N days forward on every app restart.
+    const next = computeNextFire(
+      task.schedule,
+      now,
+      task.lastFireAt ?? null,
+    );
     if (next !== task.nextFireAt) {
       await updateTask(task.id, { nextFireAt: next });
     }

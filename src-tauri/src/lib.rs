@@ -53,6 +53,14 @@ pub fn run() {
             db::restart_app,
         ])
         .setup(|app| {
+            // Pending-reset cleanup: if the previous shutdown was triggered by
+            // the Settings reset button, the DB files weren't actually deleted
+            // (they were locked by the SQL plugin). Do the deletion now, before
+            // the plugin reconnects.
+            if let Err(e) = db::process_reset_marker(app.handle()) {
+                log::warn!("[setup] reset marker processing failed: {e}");
+            }
+
             // Snapshot data.db BEFORE the SQL plugin gets a chance to apply
             // any migrations — the snapshot is the only recovery path if a
             // migration mutates data unexpectedly.
