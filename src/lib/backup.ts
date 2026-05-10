@@ -79,46 +79,62 @@ export async function importFromJson(): Promise<{
   }
 
   const db = await getDb();
-  // Wipe and reload. Personal app, single user — destructive import is fine.
-  await db.execute("DELETE FROM task_logs");
-  await db.execute("DELETE FROM tasks");
-  await db.execute("DELETE FROM settings");
+  // Wrap the destructive wipe + insert in a single transaction. If any
+  // INSERT fails midway, ROLLBACK leaves the existing DB untouched — the
+  // user doesn't end up with a half-imported database.
+  await db.execute("BEGIN TRANSACTION");
 
   let tCount = 0;
-  for (const t of bundle.tasks) {
-    const input: NewTaskInput = {
-      id: t.id,
-      category: t.category,
-      title: t.title,
-      schedule: t.schedule,
-      notificationLevel: t.notificationLevel,
-      active: t.active,
-      estimateMinutes: t.estimateMinutes,
-      nextFireAt: t.nextFireAt,
-    };
-    await insertTask(input);
-    tCount++;
-  }
-
   let lCount = 0;
-  for (const log of bundle.logs) {
-    await insertLog({
-      taskId: log.taskId,
-      scheduledAt: log.scheduledAt,
-      completedAt: log.completedAt,
-      status: log.status,
-      quickAction: log.quickAction ?? null,
-    });
-    lCount++;
-  }
-
   let sCount = 0;
-  for (const s of bundle.settings) {
-    await db.execute(
-      `INSERT INTO settings (key, value) VALUES ($1, $2)`,
-      [s.key, s.value],
-    );
-    sCount++;
+
+  try {
+    await db.execute("DELETE FROM task_logs");
+    await db.execute("DELETE FROM tasks");
+    await db.execute("DELETE FROM settings");
+
+    for (const t of bundle.tasks) {
+      const input: NewTaskInput = {
+        id: t.id,
+        category: t.category,
+        title: t.title,
+        schedule: t.schedule,
+        notificationLevel: t.notificationLevel,
+        active: t.active,
+        estimateMinutes: t.estimateMinutes,
+        nextFireAt: t.nextFireAt,
+      };
+      await insertTask(input);
+      tCount++;
+    }
+
+    for (const log of bundle.logs) {
+      await insertLog({
+        taskId: log.taskId,
+        scheduledAt: log.scheduledAt,
+        completedAt: log.completedAt,
+        status: log.status,
+        quickAction: log.quickAction ?? null,
+      });
+      lCount++;
+    }
+
+    for (const s of bundle.settings) {
+      await db.execute(
+        `INSERT INTO settings (key, value) VALUES ($1, $2)`,
+        [s.key, s.value],
+      );
+      sCount++;
+    }
+
+    await db.execute("COMMIT");
+  } catch (err) {
+    try {
+      await db.execute("ROLLBACK");
+    } catch {
+      /* swallow — original error matters more */
+    }
+    throw err;
   }
 
   return { imported: { tasks: tCount, logs: lCount, settings: sCount } };

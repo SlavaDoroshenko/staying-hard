@@ -76,6 +76,22 @@ export function SettingsView() {
     }
   }
 
+  const [resetConfirming, setResetConfirming] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+
+  async function runReset() {
+    if (resetBusy) return;
+    setResetBusy(true);
+    try {
+      await invoke("reset_database");
+      // App restarts; control never returns. If it does (failure), keep UI live.
+    } catch (err) {
+      console.error(err);
+      setResetBusy(false);
+      setResetConfirming(false);
+    }
+  }
+
   async function testNotif() {
     try {
       await invoke("open_notification_window", {
@@ -192,6 +208,44 @@ export function SettingsView() {
             status={importStatus}
             destructive
           />
+          {resetConfirming ? (
+            <div className="flex items-baseline justify-between gap-6 border-b border-border/40 py-3">
+              <div className="min-w-0 flex-1">
+                <span className="block text-[15px] text-destructive">
+                  точно сбросить? все локальные задачи и логи удалятся.
+                </span>
+                <span className="mt-1 block font-mono text-[12px] text-faint-foreground">
+                  бэкап БД останется в data.db.backup-*
+                </span>
+              </div>
+              <div className="flex shrink-0 gap-3 font-mono text-[11px] uppercase tracking-[0.16em]">
+                <button
+                  type="button"
+                  onClick={runReset}
+                  disabled={resetBusy}
+                  className="text-destructive hover:text-foreground"
+                >
+                  {resetBusy ? "сбрасываю…" : "да, сбросить"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setResetConfirming(false)}
+                  disabled={resetBusy}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  отмена
+                </button>
+              </div>
+            </div>
+          ) : (
+            <ActionRow
+              label="сбросить локальную базу"
+              hint="полное стирание + перезапуск приложения. крайняя мера, если база сломана."
+              onClick={() => setResetConfirming(true)}
+              status={null}
+              destructive
+            />
+          )}
         </div>
       </section>
 

@@ -49,8 +49,16 @@ pub fn run() {
             notification_window::close_notification_window,
             notification_window::mark_notification_resolved,
             scheduler::trigger_recompute,
+            db::reset_database,
         ])
         .setup(|app| {
+            // Snapshot data.db BEFORE the SQL plugin gets a chance to apply
+            // any migrations — the snapshot is the only recovery path if a
+            // migration mutates data unexpectedly.
+            if let Err(e) = db::backup_db_before_migration(app.handle()) {
+                log::warn!("[setup] db backup failed: {e}");
+            }
+
             tray::setup_tray(app.handle())?;
 
             #[cfg(target_os = "macos")]

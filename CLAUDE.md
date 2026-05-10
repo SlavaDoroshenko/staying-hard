@@ -18,8 +18,18 @@ Self-care reminder app для одного человека с режимом 12
 - **Планировщик — на стороне Rust** ([src-tauri/src/scheduler.rs](src-tauri/src/scheduler.rs)). `setTimeout` в renderer'е не переживает sleep/wake macOS.
 - **Hard-нотификации**: окно с `closable: false` + `CloseRequested` перехвачен в Rust до резолва ([src-tauri/src/notification_window.rs](src-tauri/src/notification_window.rs)).
 - **Single-instance — обязателен** ([src-tauri/src/lib.rs](src-tauri/src/lib.rs)). Без него двойной запуск дублирует планировщик.
-- **DB бэкап перед миграциями** — критично, без этого можно потерять статистику пользователя.
+- **DB бэкап перед миграциями** — реализовано в [src-tauri/src/db.rs](src-tauri/src/db.rs) `backup_db_before_migration`. Хранит 3 последних копии в `app_data_dir()/data.db.backup-{ts}`.
 - **macOS LSUIElement = true** через `setActivationPolicy(Accessory)` — без иконки в доке.
+
+## Миграции SQL — иммутабельны после релиза
+
+**Никогда не редактируй уже зарелизенный файл миграции.** Только добавляй новые версии (`0002_*.sql`, `0003_*.sql`).
+
+`tauri-plugin-sql` использует `sqlx`, который при каждом старте пересчитывает SHA-256 каждого migration-файла и сравнивает со stored checksum в `_sqlx_migrations` таблице. Если не совпадает — приложение падает с `migration N was previously applied but has been modified` и **все** SQL-операции перестают работать. У пользователей с уже применённой миграцией БД станет неработоспособной — единственный путь восстановления это полный сброс через Settings → "сбросить локальную базу" (или ручное удаление `data.db`).
+
+История уже накосячена: между моими dev-итерациями и v0.1.0 commit'ом текст `0001_init.sql` менялся, поэтому у пользователей, чей `data.db` был создан "в процессе", сейчас checksum mismatch с релизной версией.
+
+**Правило**: если нужно изменить схему — `cp 0001_init.sql 0002_alter_X.sql`, дописать ALTER, добавить новый `Migration { version: 2, ... }` в [src-tauri/src/lib.rs](src-tauri/src/lib.rs).
 
 ## Деплой
 
