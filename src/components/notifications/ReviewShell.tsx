@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 interface ReviewParams {
@@ -37,6 +37,17 @@ export function ReviewShell() {
       console.error(err);
     }
   }
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Enter" || e.key === "Escape") {
+        e.preventDefault();
+        void dismiss();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-background p-12">

@@ -191,6 +191,16 @@ export function TodayChecklist() {
             на сегодня ничего не запланировано.
           </div>
         )}
+        {total > 0 && done === total && (
+          <div className="mt-12 border-t border-border/40 pt-8">
+            <p className="font-display text-[22px] italic text-foreground">
+              всё на сегодня сделано.
+            </p>
+            <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.16em] text-faint-foreground">
+              отдыхай · {done} из {total}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

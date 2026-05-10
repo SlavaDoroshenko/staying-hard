@@ -40,6 +40,17 @@ export function EmergencyShell() {
     return () => clearTimeout(id);
   }, [secondsLeft]);
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Enter" && secondsLeft <= 0) {
+        e.preventDefault();
+        void getCurrentWindow().close();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [secondsLeft]);
+
   if (!params) {
     return (
       <div className="flex h-screen items-center justify-center bg-background font-mono text-xs text-muted-foreground">

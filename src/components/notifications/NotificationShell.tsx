@@ -60,6 +60,28 @@ export function NotificationShell() {
     playNotificationSound(params.level);
   }, [params]);
 
+  // Keyboard shortcuts for soft notifications. Hard windows intentionally
+  // ignore keys: per spec they must be acknowledged with intent.
+  useEffect(() => {
+    if (!params) return;
+    const isHardLocal = params.level === "hard";
+    const isFoodLocal = params.category === "food";
+    function onKey(e: KeyboardEvent) {
+      if (busy || isHardLocal) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        void dismiss();
+      } else if (e.key === "Enter" && !isFoodLocal) {
+        // Food has multiple "done" paths (quick actions) — no obvious default.
+        e.preventDefault();
+        void complete();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, busy]);
+
   if (!params) {
     return (
       <div className="flex h-screen items-center justify-center bg-background font-mono text-xs text-muted-foreground">

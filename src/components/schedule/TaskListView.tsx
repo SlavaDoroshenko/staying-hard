@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Pause, Play, Plus } from "lucide-react";
 import {
   CATEGORY_LABEL_RU,
   type RecurringTask,
   type TaskCategory,
 } from "@/types/task";
-import { listAllTasks } from "@/lib/db/tasks";
+import { listAllTasks, updateTask } from "@/lib/db/tasks";
 import { formatSchedule } from "@/lib/schedule/format";
 import { cn } from "@/lib/cn";
 
@@ -30,21 +30,16 @@ export function TaskListView({
   const [tasks, setTasks] = useState<RecurringTask[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
+  const refresh = useCallback(() => {
     listAllTasks()
-      .then((all) => {
-        if (cancelled) return;
-        setTasks(all.filter((t) => categories.includes(t.category)));
-      })
+      .then((all) => setTasks(all.filter((t) => categories.includes(t.category))))
       .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .finally(() => setLoading(false));
   }, [categories]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const grouped = useMemo(() => {
     const result = new Map<TaskCategory, RecurringTask[]>();
@@ -86,7 +81,12 @@ export function TaskListView({
                 <div className="caption mb-4">{CATEGORY_LABEL_RU[cat]}</div>
                 <ul>
                   {items.map((t) => (
-                    <TaskRow key={t.id} task={t} basePath={basePath} />
+                    <TaskRow
+                      key={t.id}
+                      task={t}
+                      basePath={basePath}
+                      onChanged={refresh}
+                    />
                   ))}
                 </ul>
               </section>
@@ -96,7 +96,12 @@ export function TaskListView({
       ) : (
         <ul>
           {tasks.map((t) => (
-            <TaskRow key={t.id} task={t} basePath={basePath} />
+            <TaskRow
+              key={t.id}
+              task={t}
+              basePath={basePath}
+              onChanged={refresh}
+            />
           ))}
         </ul>
       )}
@@ -107,22 +112,37 @@ export function TaskListView({
 function TaskRow({
   task,
   basePath,
+  onChanged,
 }: {
   task: RecurringTask;
   basePath: string;
+  onChanged: () => void;
 }) {
+  const [toggling, setToggling] = useState(false);
+
+  async function togglePause() {
+    if (toggling) return;
+    setToggling(true);
+    try {
+      await updateTask(task.id, { active: !task.active });
+      onChanged();
+    } finally {
+      setToggling(false);
+    }
+  }
+
   return (
-    <li>
+    <li className="group relative flex items-stretch border-t border-border/40">
       <Link
         to={`${basePath}/${task.id}`}
         className={cn(
-          "group flex items-baseline justify-between gap-6 border-t border-border/40 py-3 transition-colors",
+          "flex flex-1 items-baseline justify-between gap-6 py-3 pr-3 transition-colors",
           !task.active && "opacity-50",
         )}
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-3">
-            <span className="text-[15px] text-foreground group-hover:text-accent">
+            <span className="text-[15px] text-foreground transition-colors group-hover:text-accent">
               {task.title}
             </span>
             {task.notificationLevel === "hard" && (
@@ -141,10 +161,32 @@ function TaskRow({
             {task.estimateMinutes ? ` · ~${task.estimateMinutes} мин` : ""}
           </div>
         </div>
-        <span aria-hidden className="font-mono text-[12px] text-faint-foreground transition-colors group-hover:text-accent">
+        <span
+          aria-hidden
+          className="font-mono text-[12px] text-faint-foreground transition-colors group-hover:text-accent"
+        >
           →
         </span>
       </Link>
+      <button
+        type="button"
+        onClick={togglePause}
+        disabled={toggling}
+        aria-label={task.active ? "пауза" : "включить"}
+        title={task.active ? "поставить на паузу" : "включить"}
+        className={cn(
+          "flex shrink-0 items-center justify-center px-3 transition-opacity hover:text-foreground",
+          task.active
+            ? "text-faint-foreground opacity-0 group-hover:opacity-100"
+            : "text-muted-foreground opacity-100",
+        )}
+      >
+        {task.active ? (
+          <Pause className="h-3.5 w-3.5" />
+        ) : (
+          <Play className="h-3.5 w-3.5" />
+        )}
+      </button>
     </li>
   );
 }
