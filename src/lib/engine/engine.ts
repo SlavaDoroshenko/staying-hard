@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { computeNextFire } from "@/lib/schedule/next-fire";
+import { generateSlotsForDay } from "@/lib/schedule/today-slots";
 import { listActiveTasks, updateTask } from "@/lib/db/tasks";
 import {
   getLogByTaskAndSlot,
@@ -10,6 +11,8 @@ import {
 import { detectEmergencies } from "@/lib/stats/emergency";
 import { buildWeekReview } from "@/lib/stats/review";
 import { getSetting, setSetting } from "@/lib/db/settings";
+import { todayRangeMs } from "@/lib/time/day";
+import type { RecurringTask } from "@/types/task";
 
 let started = false;
 let busy = false;
@@ -51,45 +54,65 @@ async function processDueTasks(nowMs: number): Promise<void> {
 
   const tasks = await listActiveTasks();
   const now = new Date(nowMs);
+  const { from: dayStart, to: dayEnd } = todayRangeMs(now);
+
   for (const task of tasks) {
-    if (task.nextFireAt == null || task.nextFireAt > nowMs) continue;
-    // Each task is wrapped in its own try/catch so a single bad task
-    // (e.g. malformed schedule JSON, transient SQL error, refused window
-    // creation) doesn't abort the rest of the tick. The unprocessed task
-    // self-heals on the next tick if its data becomes valid.
     try {
-      const existing = await getLogByTaskAndSlot(task.id, task.nextFireAt);
-
-      if (!existing) {
-        await invoke("open_notification_window", {
-          payload: {
-            taskId: task.id,
-            title: task.title,
-            category: task.category,
-            level: task.notificationLevel,
-            scheduledAt: task.nextFireAt,
-            estimateMinutes: task.estimateMinutes ?? null,
-          },
-        });
-
-        await insertLog({
-          taskId: task.id,
-          scheduledAt: task.nextFireAt,
-          completedAt: null,
-          status: "pending",
-        });
+      // Path 1 (fast): existing nextFireAt-based firing. Fires the slot that
+      // task.nextFireAt currently points at, advances via computeNextFire.
+      if (task.nextFireAt != null && task.nextFireAt <= nowMs) {
+        await fireSlot(task, task.nextFireAt);
+        const fired = task.nextFireAt;
+        const next = computeNextFire(task.schedule, now, fired);
+        await updateTask(task.id, { lastFireAt: fired, nextFireAt: next });
       }
 
-      const fired = task.nextFireAt;
-      const next = computeNextFire(task.schedule, now, fired);
-      await updateTask(task.id, {
-        lastFireAt: fired,
-        nextFireAt: next,
-      });
+      // Path 2 (safety net): re-derive today's slots from the schedule and
+      // fire anything in the last 5 minutes that has no log yet. Catches
+      // historical bugs where nextFireAt was set wrong (e.g. v0.1.6
+      // recompute pre-fix) — generated slots are the source of truth, the
+      // engine self-heals on the next tick.
+      const slots = generateSlotsForDay(task, dayStart, dayEnd);
+      for (const slotMs of slots) {
+        if (slotMs > nowMs) continue;
+        if (slotMs < nowMs - 5 * 60_000) continue;
+        const existing = await getLogByTaskAndSlot(task.id, slotMs);
+        if (existing) continue;
+        await fireSlot(task, slotMs);
+      }
     } catch (err) {
       console.error(`[engine] task ${task.id} failed`, err);
     }
   }
+}
+
+/**
+ * Open the notification window for a single (task, slot) pair and insert
+ * the matching pending log. Idempotent at the log level — caller should
+ * have checked that no log exists for this slot.
+ */
+async function fireSlot(task: RecurringTask, slotMs: number): Promise<void> {
+  // Re-check log inside the helper: path 1 might have inserted before
+  // path 2 reaches the same slot in the same tick.
+  const existing = await getLogByTaskAndSlot(task.id, slotMs);
+  if (existing) return;
+
+  await invoke("open_notification_window", {
+    payload: {
+      taskId: task.id,
+      title: task.title,
+      category: task.category,
+      level: task.notificationLevel,
+      scheduledAt: slotMs,
+      estimateMinutes: task.estimateMinutes ?? null,
+    },
+  });
+  await insertLog({
+    taskId: task.id,
+    scheduledAt: slotMs,
+    completedAt: null,
+    status: "pending",
+  });
 }
 
 const SIX_DAYS_MS = 6 * 86_400_000;
