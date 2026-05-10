@@ -70,6 +70,21 @@ pub fn run() {
 
             tray::setup_tray(app.handle())?;
 
+            // Hide-on-close: X button minimizes to tray instead of quitting.
+            // App continues running so the scheduler keeps firing
+            // notifications. To actually quit, use the tray menu's "Выйти".
+            if let Some(main_window) = app.get_webview_window("main") {
+                let app_handle = app.handle().clone();
+                main_window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        if let Some(w) = app_handle.get_webview_window("main") {
+                            let _ = w.hide();
+                        }
+                    }
+                });
+            }
+
             #[cfg(target_os = "macos")]
             {
                 use cocoa::appkit::{NSApp, NSApplication, NSApplicationActivationPolicy};
