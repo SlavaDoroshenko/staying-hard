@@ -163,6 +163,17 @@ export function TodayChecklist() {
             {done}/{total} сделано
           </span>
         </div>
+        {total > 0 && (
+          <div
+            aria-hidden
+            className="relative mt-4 h-[3px] w-full overflow-hidden rounded-full bg-surface-2/60"
+          >
+            <div
+              className="absolute inset-y-0 left-0 bg-accent transition-[width] duration-300 ease-out"
+              style={{ width: `${Math.round((done / total) * 100)}%` }}
+            />
+          </div>
+        )}
       </header>
 
       <div className="space-y-12">

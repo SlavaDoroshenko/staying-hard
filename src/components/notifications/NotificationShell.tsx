@@ -54,10 +54,24 @@ export function NotificationShell() {
   const params = useMemo(readParams, []);
   const [confirmingSkip, setConfirmingSkip] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [elapsedMin, setElapsedMin] = useState(0);
 
   useEffect(() => {
     if (!params) return;
     playNotificationSound(params.level);
+  }, [params]);
+
+  // Live "+ N мин назад" caption — helps the user gauge how long the
+  // notification has been sitting there if they walked away.
+  useEffect(() => {
+    if (!params) return;
+    function tick() {
+      const m = Math.floor((Date.now() - params!.scheduledAt) / 60_000);
+      setElapsedMin(Math.max(0, m));
+    }
+    tick();
+    const id = setInterval(tick, 30_000);
+    return () => clearInterval(id);
   }, [params]);
 
   // Keyboard shortcuts for soft notifications. Hard windows intentionally
@@ -160,6 +174,14 @@ export function NotificationShell() {
           <span className="font-mono tabular-nums normal-case tracking-normal">
             {time}
           </span>
+          {elapsedMin >= 1 && (
+            <>
+              <span className="text-faint-foreground">·</span>
+              <span className="font-mono tabular-nums normal-case tracking-normal text-faint-foreground">
+                + {elapsedMin} мин назад
+              </span>
+            </>
+          )}
         </div>
 
         <h1 className="mt-4 font-display text-[42px] leading-[1.05] tracking-[-0.02em] text-foreground">

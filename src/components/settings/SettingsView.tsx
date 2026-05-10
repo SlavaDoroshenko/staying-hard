@@ -6,10 +6,11 @@ import {
   getBoolSetting,
   setBoolSetting,
 } from "@/lib/db/settings";
+import { playNotificationSound } from "@/lib/sound";
 import { cn } from "@/lib/cn";
 
 const SOUND_KEY = "sound_enabled";
-const APP_VERSION = "0.1.0";
+const APP_VERSION = __APP_VERSION__;
 
 export function SettingsView() {
   const [autostart, setAutostart] = useState<boolean | null>(null);
@@ -150,7 +151,7 @@ export function SettingsView() {
       </header>
 
       <section className="mb-12">
-        <div className="caption mb-4">поведение</div>
+        <div className="caption mb-4">уведомления</div>
 
         <Row
           label="запускать при старте системы"
@@ -165,29 +166,48 @@ export function SettingsView() {
           value={sound}
           onClick={toggleSound}
           busy={busySound}
+          aside={
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                void playNotificationSound("soft", { force: true });
+              }}
+              className="font-mono text-[10px] uppercase tracking-[0.16em] text-faint-foreground hover:text-foreground"
+              aria-label="послушать звук"
+            >
+              послушать
+            </button>
+          }
         />
+      </section>
 
-        <div className="mt-6 flex flex-col gap-2.5 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+      <section className="mb-12">
+        <div className="caption mb-4">тестовые окна</div>
+        <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.16em] text-faint-foreground">
+          посмотреть как выглядят все три типа без ожидания
+        </p>
+        <div className="flex flex-col gap-2.5 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
           <button
             type="button"
             onClick={testNotif}
             className="self-start hover:text-foreground"
           >
-            → запустить тест-уведомление
+            → soft-уведомление
           </button>
           <button
             type="button"
             onClick={testEmergency}
             className="self-start hover:text-foreground"
           >
-            → тест аварийного режима
+            → аварийный режим
           </button>
           <button
             type="button"
             onClick={testReview}
             className="self-start hover:text-foreground"
           >
-            → тест воскресного обзора
+            → воскресный обзор
           </button>
         </div>
       </section>
@@ -270,43 +290,48 @@ function Row({
   value,
   onClick,
   busy,
+  aside,
 }: {
   label: string;
   hint: string;
   value: boolean | null;
   onClick: () => void;
   busy: boolean;
+  aside?: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={value === null || busy}
-      className="group flex w-full items-center justify-between gap-6 border-b border-border/40 py-3 text-left disabled:opacity-50"
-    >
-      <div className="min-w-0 flex-1">
-        <span className="block text-[15px] text-foreground transition-colors group-hover:text-accent">
-          {label}
-        </span>
-        <span className="mt-1 block font-mono text-[12px] text-faint-foreground">
-          {hint}
-        </span>
-      </div>
-      <span
-        aria-hidden
-        className={cn(
-          "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
-          value ? "bg-accent" : "bg-border-strong",
-        )}
+    <div className="flex items-center gap-4 border-b border-border/40">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={value === null || busy}
+        className="group flex flex-1 items-center justify-between gap-6 py-3 text-left disabled:opacity-50"
       >
+        <div className="min-w-0 flex-1">
+          <span className="block text-[15px] text-foreground transition-colors group-hover:text-accent">
+            {label}
+          </span>
+          <span className="mt-1 block font-mono text-[12px] text-faint-foreground">
+            {hint}
+          </span>
+        </div>
         <span
+          aria-hidden
           className={cn(
-            "block h-4 w-4 rounded-full bg-foreground shadow-sm transition-transform",
-            value ? "translate-x-[1.125rem]" : "translate-x-0.5",
+            "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+            value ? "bg-accent" : "bg-border-strong",
           )}
-        />
-      </span>
-    </button>
+        >
+          <span
+            className={cn(
+              "block h-4 w-4 rounded-full bg-foreground shadow-sm transition-transform",
+              value ? "translate-x-[1.125rem]" : "translate-x-0.5",
+            )}
+          />
+        </span>
+      </button>
+      {aside}
+    </div>
   );
 }
 

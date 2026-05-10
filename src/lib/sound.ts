@@ -9,12 +9,15 @@ const SOUND_KEY = "sound_enabled";
  */
 export async function playNotificationSound(
   variant: "soft" | "hard" | "emergency" = "soft",
+  options: { force?: boolean } = {},
 ): Promise<void> {
-  try {
-    const enabled = await getBoolSetting(SOUND_KEY, true);
-    if (!enabled) return;
-  } catch {
-    /* setting missing — default to enabled */
+  if (!options.force) {
+    try {
+      const enabled = await getBoolSetting(SOUND_KEY, true);
+      if (!enabled) return;
+    } catch {
+      /* setting missing — default to enabled */
+    }
   }
 
   try {
