@@ -37,3 +37,6 @@ src-tauri/WixTools/
 # secrets
 .env
 .env.local
+
+# user JSON backups from settings export
+staying-hard-backup-*.json
