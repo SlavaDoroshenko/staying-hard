@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { Shell } from "./Shell";
 import { NotificationRoute } from "./routes/Notification";
 
@@ -47,29 +48,31 @@ export function App() {
   }
 
   return (
-    <HashRouter>
-      <Suspense
-        fallback={
-          <div className="flex h-full items-center justify-center font-display italic text-muted-foreground">
-            …
-          </div>
-        }
-      >
-        <Routes>
-          <Route element={<Shell />}>
-            <Route index element={<Navigate to="/today" replace />} />
-            <Route path="/today" element={<TodayRoute />} />
-            <Route path="/schedule" element={<ScheduleRoute />} />
-            <Route path="/schedule/new" element={<ScheduleNewRoute />} />
-            <Route path="/schedule/:id" element={<ScheduleEditRoute />} />
-            <Route path="/zones" element={<ZonesRoute />} />
-            <Route path="/zones/new" element={<ZonesNewRoute />} />
-            <Route path="/zones/:id" element={<ZonesEditRoute />} />
-            <Route path="/stats" element={<StatsRoute />} />
-            <Route path="/settings" element={<SettingsRoute />} />
-          </Route>
-        </Routes>
-      </Suspense>
-    </HashRouter>
+    <ErrorBoundary>
+      <HashRouter>
+        <Suspense
+          fallback={
+            <div className="flex h-full items-center justify-center font-display italic text-muted-foreground">
+              …
+            </div>
+          }
+        >
+          <Routes>
+            <Route element={<Shell />}>
+              <Route index element={<Navigate to="/today" replace />} />
+              <Route path="/today" element={<TodayRoute />} />
+              <Route path="/schedule" element={<ScheduleRoute />} />
+              <Route path="/schedule/new" element={<ScheduleNewRoute />} />
+              <Route path="/schedule/:id" element={<ScheduleEditRoute />} />
+              <Route path="/zones" element={<ZonesRoute />} />
+              <Route path="/zones/new" element={<ZonesNewRoute />} />
+              <Route path="/zones/:id" element={<ZonesEditRoute />} />
+              <Route path="/stats" element={<StatsRoute />} />
+              <Route path="/settings" element={<SettingsRoute />} />
+            </Route>
+          </Routes>
+        </Suspense>
+      </HashRouter>
+    </ErrorBoundary>
   );
 }

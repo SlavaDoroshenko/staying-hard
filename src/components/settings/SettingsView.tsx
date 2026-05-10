@@ -7,10 +7,10 @@ import {
   setBoolSetting,
 } from "@/lib/db/settings";
 import { playNotificationSound } from "@/lib/sound";
+import { APP_VERSION } from "@/lib/version";
 import { cn } from "@/lib/cn";
 
 const SOUND_KEY = "sound_enabled";
-const APP_VERSION = __APP_VERSION__;
 
 export function SettingsView() {
   const [autostart, setAutostart] = useState<boolean | null>(null);
