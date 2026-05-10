@@ -171,14 +171,15 @@ export function NotificationShell() {
                   type="button"
                   onClick={skip}
                   disabled={busy}
-                  className="flex-1 rounded-md border border-destructive/40 bg-transparent px-4 py-3 font-mono text-[12px] uppercase tracking-[0.16em] text-destructive hover:bg-destructive/10"
+                  className="flex-1 rounded-md border border-destructive/40 bg-transparent px-4 py-3 font-mono text-[12px] uppercase tracking-[0.16em] text-destructive hover:bg-destructive/10 disabled:opacity-50"
                 >
                   точно пропускаю
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirmingSkip(false)}
-                  className="rounded-md px-3 py-3 text-[13px] text-muted-foreground hover:text-foreground"
+                  disabled={busy}
+                  className="rounded-md px-3 py-3 text-[13px] text-muted-foreground hover:text-foreground disabled:opacity-50"
                 >
                   отмена
                 </button>
@@ -189,14 +190,15 @@ export function NotificationShell() {
                   type="button"
                   onClick={() => complete()}
                   disabled={busy}
-                  className="flex-1 rounded-md bg-accent px-5 py-3 font-mono text-[12px] uppercase tracking-[0.16em] text-accent-foreground hover:bg-accent/90"
+                  className="flex-1 rounded-md bg-accent px-5 py-3 font-mono text-[12px] uppercase tracking-[0.16em] text-accent-foreground hover:bg-accent/90 disabled:opacity-50"
                 >
                   сделал
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirmingSkip(true)}
-                  className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground"
+                  disabled={busy}
+                  className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground disabled:opacity-50"
                 >
                   пропускаю осознанно
                 </button>

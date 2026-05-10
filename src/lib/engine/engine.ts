@@ -53,38 +53,42 @@ async function processDueTasks(nowMs: number): Promise<void> {
   const now = new Date(nowMs);
   for (const task of tasks) {
     if (task.nextFireAt == null || task.nextFireAt > nowMs) continue;
+    // Each task is wrapped in its own try/catch so a single bad task
+    // (e.g. malformed schedule JSON, transient SQL error, refused window
+    // creation) doesn't abort the rest of the tick. The unprocessed task
+    // self-heals on the next tick if its data becomes valid.
+    try {
+      const existing = await getLogByTaskAndSlot(task.id, task.nextFireAt);
 
-    // If a log already exists for this slot — most likely the user pre-marked
-    // it complete from Today, or this is a duplicate tick — skip the
-    // notification and the insert. Just advance the schedule.
-    const existing = await getLogByTaskAndSlot(task.id, task.nextFireAt);
+      if (!existing) {
+        await invoke("open_notification_window", {
+          payload: {
+            taskId: task.id,
+            title: task.title,
+            category: task.category,
+            level: task.notificationLevel,
+            scheduledAt: task.nextFireAt,
+            estimateMinutes: task.estimateMinutes ?? null,
+          },
+        });
 
-    if (!existing) {
-      await invoke("open_notification_window", {
-        payload: {
+        await insertLog({
           taskId: task.id,
-          title: task.title,
-          category: task.category,
-          level: task.notificationLevel,
           scheduledAt: task.nextFireAt,
-          estimateMinutes: task.estimateMinutes ?? null,
-        },
-      });
+          completedAt: null,
+          status: "pending",
+        });
+      }
 
-      await insertLog({
-        taskId: task.id,
-        scheduledAt: task.nextFireAt,
-        completedAt: null,
-        status: "pending",
+      const fired = task.nextFireAt;
+      const next = computeNextFire(task.schedule, now, fired);
+      await updateTask(task.id, {
+        lastFireAt: fired,
+        nextFireAt: next,
       });
+    } catch (err) {
+      console.error(`[engine] task ${task.id} failed`, err);
     }
-
-    const fired = task.nextFireAt;
-    const next = computeNextFire(task.schedule, now, fired);
-    await updateTask(task.id, {
-      lastFireAt: fired,
-      nextFireAt: next,
-    });
   }
 }
 

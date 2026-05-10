@@ -108,7 +108,9 @@ fn build_emergency_window(
         urlencode(&payload.message),
     );
 
-    let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::App(url.into()))
+    // No CloseRequested handler — the 5s delay is enforced by React. Letting
+    // close happen freely avoids RESOLVED-set leaks across emergency cycles.
+    WebviewWindowBuilder::new(app, &label, WebviewUrl::App(url.into()))
         .title("аварийный режим")
         .inner_size(720.0, 480.0)
         .resizable(false)
@@ -120,16 +122,6 @@ fn build_emergency_window(
         .build()
         .map_err(|e| e.to_string())?;
 
-    let label_owned = label.clone();
-    window.on_window_event(move |event| {
-        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-            let resolved = resolved_set().lock().unwrap().contains(&label_owned);
-            if !resolved {
-                api.prevent_close();
-            }
-        }
-    });
-
     Ok(())
 }
 
@@ -138,11 +130,6 @@ pub async fn open_emergency_window(
     app: AppHandle,
     payload: EmergencyPayload,
 ) -> Result<(), String> {
-    let label = format!("emergency-{}", payload.category);
-    // Emergency window auto-resolves itself when the in-window React countdown
-    // finishes — pre-mark it resolved so the React `getCurrentWindow().close()`
-    // call doesn't get blocked by the CloseRequested guard.
-    resolved_set().lock().unwrap().insert(label);
     build_emergency_window(&app, &payload)
 }
 
