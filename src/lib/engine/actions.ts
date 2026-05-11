@@ -38,10 +38,16 @@ export async function resolveNotification(input: ResolveInput): Promise<void> {
     });
   }
 
+  // Mark the window as internally resolved so a subsequent close() bypasses
+  // the hard-window CloseRequested guard. Closing the window itself is done
+  // by the caller (NotificationShell) via `getCurrentWindow().close()` —
+  // direct webview API, no extra invoke round-trip that could hang.
   const label = notifLabel(input.taskId, input.scheduledAt);
-  // Allow CloseRequested to actually close hard windows.
-  await invoke("mark_notification_resolved", { label });
-  await invoke("close_notification_window", { label });
+  try {
+    await invoke("mark_notification_resolved", { label });
+  } catch (err) {
+    console.warn("mark_notification_resolved failed", err);
+  }
 }
 
 /**

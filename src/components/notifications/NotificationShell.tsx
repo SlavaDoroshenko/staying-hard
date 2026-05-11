@@ -119,12 +119,14 @@ export function NotificationShell() {
         status: "completed",
         quickAction,
       });
+      // Close the window directly via the webview API. Bypasses the
+      // separate close_notification_window command — fewer moving parts,
+      // no chance of an invoke round-trip hanging while the user stares
+      // at a stuck "сделал" button.
+      await getCurrentWindow().close();
     } catch (err) {
       console.error(err);
-    } finally {
-      // Always reset — if Tauri close() succeeded the window is already
-      // tearing down; if it failed we need to let the user retry.
-      setBusy(false);
+      setBusy(false); // close failed — let user retry
     }
   }
 
@@ -137,9 +139,9 @@ export function NotificationShell() {
         scheduledAt: params!.scheduledAt,
         status: "skipped",
       });
+      await getCurrentWindow().close();
     } catch (err) {
       console.error(err);
-    } finally {
       setBusy(false);
     }
   }

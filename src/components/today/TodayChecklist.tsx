@@ -261,6 +261,8 @@ function TodayRow({
         });
       }
       onComplete();
+    } catch (err) {
+      console.error(err);
     } finally {
       setBusy(false);
     }
