@@ -5,6 +5,8 @@ import {
   insertLog,
   updateLogStatus,
 } from "@/lib/db/logs";
+import { getTask, updateTask } from "@/lib/db/tasks";
+import { computeNextFire } from "@/lib/schedule/next-fire";
 import type { TaskStatus } from "@/types/task";
 
 export interface ResolveInput {
@@ -36,6 +38,33 @@ export async function resolveNotification(input: ResolveInput): Promise<void> {
       status: input.status,
       quickAction,
     });
+  }
+
+  // Advance the task's cycle when the user resolves a slot from Today.
+  // The engine does this when it fires; but if the user pre-completes (or
+  // post-marks a slot the engine never fired because nextFireAt got stale),
+  // the schedule otherwise stays stuck on the old date and the same row
+  // keeps appearing on subsequent days. Only advance if this resolution is
+  // newer than what's recorded — protects against out-of-order clicks for
+  // interval tasks where lastFireAt should track the LATEST fire.
+  try {
+    const task = await getTask(input.taskId);
+    if (
+      task &&
+      (task.lastFireAt == null || input.scheduledAt > task.lastFireAt)
+    ) {
+      const nextFireAt = computeNextFire(
+        task.schedule,
+        new Date(),
+        input.scheduledAt,
+      );
+      await updateTask(input.taskId, {
+        lastFireAt: input.scheduledAt,
+        nextFireAt,
+      });
+    }
+  } catch (err) {
+    console.warn("task advancement after resolve failed", err);
   }
 
   // Mark the window as internally resolved so a subsequent close() bypasses

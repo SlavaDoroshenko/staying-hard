@@ -52,15 +52,11 @@ function buildRows(
 
     // Union: planned slots + any logged slot (including ones that aren't on
     // the canonical grid because the user moved/edited the schedule mid-day).
+    // No fallback to task.nextFireAt — for every_n_days tasks whose next fire
+    // is days away, we'd be misrepresenting a future slot as today's. If a
+    // task has no slot today, it just isn't on Today's list.
     const allSlots = new Set<number>(planned);
     for (const ts of taskLogs.keys()) allSlots.add(ts);
-
-    // Fallback: brand-new task with no logs and no slot today (e.g.
-    // every_n_days where today isn't a fire day) — show the next-fire row so
-    // the user can still see/click it.
-    if (allSlots.size === 0 && t.nextFireAt != null) {
-      allSlots.add(t.nextFireAt);
-    }
 
     for (const ts of [...allSlots].sort((a, b) => a - b)) {
       result[t.category].push({
